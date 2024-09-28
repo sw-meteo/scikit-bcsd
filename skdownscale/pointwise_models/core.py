@@ -11,7 +11,7 @@ DEFAULT_FEATURE_DIM = 'variable'
 def xenumerate(arr):
     """
     Multidimensional index iterator for xarray objects
-
+ 
     Return an iterator yielding pairs of array indexers (dicts) and values.
 
     Parameters

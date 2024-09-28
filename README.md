@@ -1,8 +1,8 @@
-# scikit-downscale
+# scikit-bcsd
 
-Statistical downscaling and postprocessing models for climate and weather model simulations.
 
-[![CI](https://github.com/jhamman/scikit-downscale/workflows/CI/badge.svg)](https://github.com/jhamman/scikit-downscale/actions?query=workflow%3ACI+branch%3Amain+) [![Documentation Status](https://readthedocs.org/projects/scikit-downscale/badge/?version=latest)](https://scikit-downscale.readthedocs.io/en/latest/?badge=latest) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/pangeo-data/scikit-downscale/HEAD)
+An minimal BCSD package in Python.
+BCSD is a method for statistical downscaling and postprocessing models for climate and weather model simulations.
+This project is mainly modified from `pangeo-data/scikit-downscale`, we only keep the core code.
 
-[![](https://img.shields.io/pypi/v/scikit-downscale.svg)](https://pypi.org/pypi/name/)
-![Conda (channel only)](https://img.shields.io/conda/vn/conda-forge/scikit-downscale)
+detailed example is coming soon.

@@ -14,20 +14,20 @@ class BcsdBase(TimeSynchronousDownscaler):
     """Base class for BCSD model."""
 
     _fit_attributes = ['y_climo_', 'quantile_mappers_']
-    _timestep = 'M'
+    _timestep = 'M' # 不知道做什么的，没下文了
 
     def __init__(
         self,
         time_grouper=MONTH_GROUPER,
         climate_trend_grouper=DAY_GROUPER,
-        climate_trend=MONTH_GROUPER,
+        climate_trend=False, # 原来的默认值真是莫名其妙……
         return_anoms=True,
         qm_kwargs=None,
     ):
 
         self.time_grouper = time_grouper
-        self.climate_trend_grouper = climate_trend_grouper
-        self.climate_trend = climate_trend
+        self.climate_trend_grouper = climate_trend_grouper # monthly数据都用不到
+        self.climate_trend = climate_trend # monthly数据都用不到
         self.return_anoms = return_anoms
         self.qm_kwargs = qm_kwargs
 
@@ -132,7 +132,7 @@ class BcsdPrecipitation(BcsdBase):
         if self.n_features_in_ != 1:
             raise ValueError(f'BCSD only supports 1 feature, found {self.n_features_in_}')
 
-        y_groups = self._create_groups(y)
+        y_groups = self._create_groups(y) # 为什么没有detrend？
         # calculate the climatologies
         self.y_climo_ = y_groups.mean()
 
@@ -187,6 +187,7 @@ class BcsdPrecipitation(BcsdBase):
 
     def _more_tags(self):
         return {
+            'allow_nan': True,
             '_xfail_checks': {
                 'check_estimators_dtypes': 'BCSD only suppers 1 feature',
                 'check_dtype_object': 'BCSD only suppers 1 feature',
@@ -234,6 +235,7 @@ class BcsdTemperature(BcsdBase):
 
         # make groups for day or month
         y_groups = self._create_groups(y)
+        self.y_groups = y_groups # print
 
         # calculate the climatologies
         self._x_climo = self._create_groups(X).mean()
@@ -263,21 +265,27 @@ class BcsdTemperature(BcsdBase):
         # Calculate the 9-year running mean for each month
         def rolling_func(x):
             return x.rolling(9, center=True, min_periods=1).mean()
+        # BUG here
 
-        X_rolling_mean = X.groupby(self.climate_trend, group_keys=False).apply(rolling_func)
+        X_rolling_mean = X.groupby(self.climate_trend, group_keys=False, as_index=False).apply(rolling_func)
+        self.X_rolling_mean = X_rolling_mean # print
 
         # remove climatology from 9-year monthly mean climate trend
         X_shift = self._remove_climatology(X_rolling_mean, self._x_climo, climate_trend=True)
+        self.X_shift = X_shift # print
 
         # remove shift from model data
         X_no_shift = X - X_shift
+        self.X_no_shift = X_no_shift # print
 
         # Bias correction
         # apply quantile mapping by month or day
         Xqm = self._qm_transform_by_group(self._create_groups(X_no_shift, climate_trend=True))
+        self.Xqm = Xqm # print
 
         # restore the climate trend
         X_qm_with_shift = X_shift + Xqm
+        self.X_qm_with_shift = X_qm_with_shift # print
 
         # return bias corrected absolute values or calculate the anomalies
         if self.return_anoms:
@@ -301,24 +309,5 @@ class BcsdTemperature(BcsdBase):
 
     def _more_tags(self):
         return {
-            '_xfail_checks': {
-                'check_estimators_dtypes': 'BCSD only suppers 1 feature',
-                'check_fit_score_takes_y': 'BCSD only suppers 1 feature',
-                'check_estimators_fit_returns_self': 'BCSD only suppers 1 feature',
-                'check_estimators_fit_returns_self(readonly_memmap=True)': 'BCSD only suppers 1 feature',
-                'check_dtype_object': 'BCSD only suppers 1 feature',
-                'check_pipeline_consistency': 'BCSD only suppers 1 feature',
-                'check_estimators_nan_inf': 'BCSD only suppers 1 feature',
-                'check_estimators_overwrite_params': 'BCSD only suppers 1 feature',
-                'check_estimators_pickle': 'BCSD only suppers 1 feature',
-                'check_fit2d_predict1d': 'BCSD only suppers 1 feature',
-                'check_methods_subset_invariance': 'BCSD only suppers 1 feature',
-                'check_fit2d_1sample': 'BCSD only suppers 1 feature',
-                'check_dict_unchanged': 'BCSD only suppers 1 feature',
-                'check_dont_overwrite_parameters': 'BCSD only suppers 1 feature',
-                'check_fit_idempotent': 'BCSD only suppers 1 feature',
-                'check_n_features_in': 'BCSD only suppers 1 feature',
-                'check_fit_check_is_fitted': 'BCSD only suppers 1 feature',
-                'check_methods_sample_order_invariance': 'temporal order matters',
-            },
+            'allow_nan': True,
         }

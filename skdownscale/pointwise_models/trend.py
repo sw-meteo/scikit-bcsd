@@ -78,3 +78,60 @@ class LinearTrendTransformer(TransformerMixin, BaseEstimator):
                 'check_methods_sample_order_invariance': 'temporal order matters',
             }
         }
+
+class RunningTrendTransformer(TransformerMixin, BaseEstimator):
+    """Transform features by removing running linear trends.
+
+    Parameters
+    ----------
+    window : int
+        Window size for running trend calculation.
+    """
+
+    def __init__(self, window=9):
+        self.window = window
+        self.half_window = int(window / 2)
+
+    def fit(self, X, y=None):
+        """Compute the linear trend.
+
+        Parameters
+        ----------
+        X : array-like, shape  [n_samples, n_features]
+            Training data.
+        """
+        # x.rolling(9, center=True, min_periods=1).mean()
+        X = self._validate_data(X)
+        X_mean = np.mean(X[:,0])
+        X_null = np.repeat(X_mean, self.half_window)[:, np.newaxis]
+        X_expand = np.concatenate((X_null, X, X_null), axis=0)
+        self.running_trendline = (np.convolve(X_expand[:,0], np.ones(self.window), 'valid') / self.window)[:, np.newaxis]
+        return self
+
+    def transform(self, X):
+        """Perform transformation by removing the trend.
+
+        Parameters
+        ----------
+        X : array-like, shape  [n_samples, n_features]
+            The data that should be detrended.
+        """
+        # validate input data
+        check_is_fitted(self)
+        X = self._validate_data(X)
+        assert len(X) == len(self.running_trendline)
+        return X - self.running_trendline
+
+    def inverse_transform(self, X):
+        """Add the trend back to the data.
+
+        Parameters
+        ----------
+        X : array-like, shape  [n_samples, n_features]
+            The data that should be transformed back.
+        """
+        # validate input data
+        check_is_fitted(self)
+        X = self._validate_data(X)
+        assert len(X) == len(self.running_trendline)
+        return X + self.running_trendline

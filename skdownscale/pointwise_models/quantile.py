@@ -7,7 +7,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.utils import check_array
 from sklearn.utils.validation import check_is_fitted
 
-from .trend import LinearTrendTransformer
+from .trend import LinearTrendTransformer, RunningTrendTransformer
 from .utils import check_max_features, default_none_kwargs
 
 SYNTHETIC_MIN = -1e20
@@ -60,11 +60,12 @@ class QuantileMapper(TransformerMixin, BaseEstimator):
 
     _fit_attributes = ['x_cdf_fit_']
 
-    def __init__(self, detrend=False, lt_kwargs=None, qt_kwargs=None):
+    def __init__(self, detrend=False, lt_kwargs=None, qt_kwargs=None, baseline_reftime=[1901, 2014]):
 
         self.detrend = detrend
         self.lt_kwargs = lt_kwargs
         self.qt_kwargs = qt_kwargs
+        self.baseline_reftime = baseline_reftime
 
     def fit(self, X, y=None):
         """Fit the quantile mapping model.
@@ -75,15 +76,22 @@ class QuantileMapper(TransformerMixin, BaseEstimator):
             Training data
         """
         # TO-DO: fix validate data fctn
-        X = self._validate_data(X)
+        baseline_indices = [X.index.get_loc(idx) \
+            for idx in X.loc[str(self.baseline_reftime[0]):str(self.baseline_reftime[1])].index]
+        X = self._validate_data(X) # pd.Series to array (sample x feature)
 
         qt_kws = default_none_kwargs(self.qt_kwargs, copy=True)
 
         # maybe detrend the input datasets
         if self.detrend:
             lt_kwargs = default_none_kwargs(self.lt_kwargs)
-            self.x_trend_fit_ = LinearTrendTransformer(**lt_kwargs).fit(X)
+            # self.x_trend_fit_ = LinearTrendTransformer(**lt_kwargs).fit(X)
+            self.x_trend_fit_ = RunningTrendTransformer().fit(X)
             x_to_cdf = self.x_trend_fit_.transform(X)
+            # 需要对齐的reftime内时间平均的低频信号
+            # self.lowfreq_baseline_fit_ = self.x_trend_fit_.trendline(X_baseline).mean()
+            # self.lowfreq_baseline_fit_ = self.x_trend_fit_.trendline(X)[baseline_indices].mean()
+            self.lowfreq_baseline_fit_ = self.x_trend_fit_.running_trendline[baseline_indices].mean()
         else:
             x_to_cdf = X
 
@@ -110,13 +118,21 @@ class QuantileMapper(TransformerMixin, BaseEstimator):
         # validate input data
         check_is_fitted(self)
         # TO-DO: fix validate_data fctn
+        baseline_indices = [X.index.get_loc(idx) \
+            for idx in X.loc[str(self.baseline_reftime[0]):str(self.baseline_reftime[1])].index]
         X = self._validate_data(X)
 
         # maybe detrend the datasets
         if self.detrend:
             lt_kwargs = default_none_kwargs(self.lt_kwargs)
-            x_trend = LinearTrendTransformer(**lt_kwargs).fit(X)
+            # x_trend = LinearTrendTransformer(**lt_kwargs).fit(X)
+            x_trend = RunningTrendTransformer().fit(X)
+            self.x_trend_transform_ = x_trend
             x_to_cdf = x_trend.transform(X)
+            # self.lowfreq_baseline_transform_ = x_trend.trendline(X_baseline).mean()
+            # 这个做法是不行的，因为trendline的计算并不是根据输入的X_baseline来的，而是只考虑了输入数据的长度n，然后取线性趋势的前n个点
+            # self.lowfreq_baseline_transform_ = x_trend.trendline(X)[baseline_indices].mean()
+            self.lowfreq_baseline_transform_ = x_trend.running_trendline[baseline_indices].mean()
         else:
             x_to_cdf = X
 
@@ -124,13 +140,19 @@ class QuantileMapper(TransformerMixin, BaseEstimator):
         qt_kws = default_none_kwargs(self.qt_kwargs, copy=True)
 
         x_quantiles = CunnaneTransformer(**qt_kws).fit_transform(x_to_cdf)
+        #self.x_quantiles_ = x_quantiles
         x_qmapped = self.x_cdf_fit_.inverse_transform(x_quantiles)
+        #self.x_qmapped_ = x_qmapped
 
+        # BUG of head and tail originates here
+        # fixed ^_^
+        
         # add the trend back
         if self.detrend:
             x_qmapped = x_trend.inverse_transform(x_qmapped)
             # reset the baseline (remove bias)
-            x_qmapped -= x_trend.lr_model_.intercept_ - self.x_trend_fit_.lr_model_.intercept_
+            # x_qmapped -= x_trend.lr_model_.intercept_ - self.x_trend_fit_.lr_model_.intercept_
+            x_qmapped -= self.lowfreq_baseline_transform_ - self.lowfreq_baseline_fit_
 
         return x_qmapped
 
@@ -728,7 +750,7 @@ class TrendAwareQuantileMappingRegressor(RegressorMixin, BaseEstimator):
 
         # calculate the trendline
         # TODO: think about how this would need to change if we're using a rolling average trend
-        trendline = X_trend.trendline(X)
+        trendline = X_trend.running_trendline
         trendline -= trendline.mean()  # center at 0
 
         # apply the trend and delta
