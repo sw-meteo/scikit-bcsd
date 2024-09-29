@@ -14,20 +14,20 @@ class BcsdBase(TimeSynchronousDownscaler):
     """Base class for BCSD model."""
 
     _fit_attributes = ['y_climo_', 'quantile_mappers_']
-    _timestep = 'M' # 不知道做什么的，没下文了
+    _timestep = 'M'
 
     def __init__(
         self,
         time_grouper=MONTH_GROUPER,
         climate_trend_grouper=DAY_GROUPER,
-        climate_trend=False, # 原来的默认值真是莫名其妙……
+        climate_trend=False,
         return_anoms=True,
         qm_kwargs=None,
     ):
 
         self.time_grouper = time_grouper
-        self.climate_trend_grouper = climate_trend_grouper # monthly数据都用不到
-        self.climate_trend = climate_trend # monthly数据都用不到
+        self.climate_trend_grouper = climate_trend_grouper
+        self.climate_trend = climate_trend
         self.return_anoms = return_anoms
         self.qm_kwargs = qm_kwargs
 
@@ -132,7 +132,7 @@ class BcsdPrecipitation(BcsdBase):
         if self.n_features_in_ != 1:
             raise ValueError(f'BCSD only supports 1 feature, found {self.n_features_in_}')
 
-        y_groups = self._create_groups(y) # 为什么没有detrend？
+        y_groups = self._create_groups(y) 
         # calculate the climatologies
         self.y_climo_ = y_groups.mean()
 
@@ -265,27 +265,26 @@ class BcsdTemperature(BcsdBase):
         # Calculate the 9-year running mean for each month
         def rolling_func(x):
             return x.rolling(9, center=True, min_periods=1).mean()
-        # BUG here
 
         X_rolling_mean = X.groupby(self.climate_trend, group_keys=False, as_index=False).apply(rolling_func)
-        self.X_rolling_mean = X_rolling_mean # print
+        self.X_rolling_mean = X_rolling_mean 
 
         # remove climatology from 9-year monthly mean climate trend
         X_shift = self._remove_climatology(X_rolling_mean, self._x_climo, climate_trend=True)
-        self.X_shift = X_shift # print
+        self.X_shift = X_shift 
 
         # remove shift from model data
         X_no_shift = X - X_shift
-        self.X_no_shift = X_no_shift # print
+        self.X_no_shift = X_no_shift 
 
         # Bias correction
         # apply quantile mapping by month or day
         Xqm = self._qm_transform_by_group(self._create_groups(X_no_shift, climate_trend=True))
-        self.Xqm = Xqm # print
+        self.Xqm = Xqm 
 
         # restore the climate trend
         X_qm_with_shift = X_shift + Xqm
-        self.X_qm_with_shift = X_qm_with_shift # print
+        self.X_qm_with_shift = X_qm_with_shift 
 
         # return bias corrected absolute values or calculate the anomalies
         if self.return_anoms:

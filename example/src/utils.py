@@ -1,4 +1,11 @@
+import numpy as np
 import xarray as xr
+
+def remove_nan(ds, key):
+    arr = ds[key].data
+    arr[np.isnan(arr)] = -1e-12
+    ds[key].data = arr
+    return ds
 
 def to_circular_longitude(ds, lon_name='lon'):
     ds_l = ds.isel(lon=0)
