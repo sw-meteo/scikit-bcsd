@@ -42,7 +42,7 @@ ds_model = ds_model.sortby(ds_model.lon)
 
 
 '''
-1. 分配时间轴, 同时提取mask
+1. assign time coord & extract lsmask (valid_grid / VG)
 '''
 time_coord = pd.date_range(start='1901-01-01', periods=(2020-1901+1)*12, freq=pd.DateOffset(months=1))
 ds_obs_new = xr.Dataset({out_varname: 

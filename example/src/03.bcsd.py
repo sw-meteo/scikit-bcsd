@@ -1,18 +1,7 @@
 '''
-降水降尺度历史试验
-变量: pet_ann (全年潜在蒸散发)
-空间: 全球，只对陆地上的格点计算
-方法: BCSD
-  9-yr running detrend
-  BC additive & SD multiplicative
-数据: 历史模拟 + GPCC观测
-输入模式名称和训练、验证时段
-e.g. `python ~.py ACCESS-ESM1-5 1921 2014 1901 1920`
-
 BCSD downscaling of historical precipitation
 only cauculate on land grid points
 detrend when doing quantile mapping
-
 '''
 
 import xarray as xr
